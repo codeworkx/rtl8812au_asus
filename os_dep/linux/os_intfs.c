@@ -666,14 +666,14 @@ static struct notifier_block rtw_ndev_notifier = {
 
 int rtw_ndev_notifier_register(void)
 {
-	return register_netdevice_notifier(&rtw_ndev_notifier);
+	//return register_netdevice_notifier(&rtw_ndev_notifier);
+    return NOTIFY_DONE;
 }
 
 void rtw_ndev_notifier_unregister(void)
 {
-	unregister_netdevice_notifier(&rtw_ndev_notifier);
+	//unregister_netdevice_notifier(&rtw_ndev_notifier);
 }
-
 
 int rtw_ndev_init(struct net_device *dev)
 {

@@ -20,6 +20,9 @@ EXTRA_CFLAGS += -I$(src)/include
 
 EXTRA_LDFLAGS += --strip-debug
 
+# HACK!
+export CONFIG_RTL8812AU = m
+
 CONFIG_AUTOCFG_CP = n
 
 CONFIG_MULTIDRV = n

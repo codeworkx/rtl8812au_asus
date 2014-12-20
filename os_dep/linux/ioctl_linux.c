@@ -324,6 +324,7 @@ static char *translate_scan(_adapter *padapter,
 #ifdef CONFIG_P2P
 	struct wifidirect_info	*pwdinfo = &padapter->wdinfo;
 #endif //CONFIG_P2P
+	u8 *buf = NULL;
 
 #ifdef CONFIG_P2P
 #ifdef CONFIG_WFD
@@ -584,11 +585,15 @@ static char *translate_scan(_adapter *padapter,
 	//parsing WPA/WPA2 IE
 	if (pnetwork->network.Reserved[0] != 2) // Probe Request
 	{
-		u8 buf[MAX_WPA_IE_LEN*2];
-		u8 wpa_ie[255],rsn_ie[255];
+		u8 wpa_ie[255], rsn_ie[255];
 		u16 wpa_len=0,rsn_len=0;
 		u8 *p;
 		sint out_len=0;
+		
+		buf = kzalloc(MAX_WPA_IE_LEN*2*sizeof(u8), GFP_KERNEL);
+		if (!buf)
+			return start; 
+
 		out_len=rtw_get_sec_ie(pnetwork->network.IEs ,pnetwork->network.IELength,rsn_ie,&rsn_len,wpa_ie,&wpa_len);
 		RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_wx_get_scan: ssid=%s\n",pnetwork->network.Ssid.Ssid));
 		RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_wx_get_scan: wpa_len=%d rsn_len=%d\n",wpa_len,rsn_len));
@@ -683,7 +688,7 @@ static char *translate_scan(_adapter *padapter,
 		u16 wapi_len=0;
 		u16  i;
 
-		_rtw_memset(buf_wapi, 0, MAX_WAPI_IE_LEN);
+		_rtw_memset(buf_wapi, 0, MAX_WAPI_IE_LEN*2);
 		_rtw_memset(wapi_ie, 0, MAX_WAPI_IE_LEN);
 
 		out_len_wapi=rtw_get_wapi_ie(pnetwork->network.IEs ,pnetwork->network.IELength,wapi_ie,&wapi_len);
@@ -768,19 +773,20 @@ static char *translate_scan(_adapter *padapter,
 }
 
 	{
-		u8 buf[MAX_WPA_IE_LEN];
 		u8 * p,*pos;
 		int len;
 		p = buf;
+		_rtw_memset(buf, 0, MAX_WPA_IE_LEN*2);
 		pos = pnetwork->network.Reserved;
-		_rtw_memset(buf, 0, MAX_WPA_IE_LEN);
 		p += sprintf(p, "fm=%02X%02X", pos[1], pos[0]);
 		_rtw_memset(&iwe, 0, sizeof(iwe));
 		iwe.cmd = IWEVCUSTOM;
 		iwe.u.data.length = strlen(buf);
 		start = iwe_stream_add_point(info, start, stop, &iwe, buf);
 	}
-	
+
+	if (buf)
+		kfree(buf);
 	return start;	
 }
 

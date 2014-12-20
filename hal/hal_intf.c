@@ -49,6 +49,9 @@ void rtw_hal_def_value_init(_adapter *padapter)
 }
 void	rtw_hal_free_data(_adapter *padapter)
 {
+	//free HAL Data 	
+	rtw_hal_data_deinit(padapter);
+	
 	if (is_primary_adapter(padapter))
 		if(padapter->HalFunc.free_hal_data)
 			padapter->HalFunc.free_hal_data(padapter);
@@ -98,11 +101,11 @@ void rtw_hal_init_opmode(_adapter *padapter)
 
 	fw_state = get_fwstate(pmlmepriv);
 
-	if (fw_state | WIFI_ADHOC_STATE) 
+	if (fw_state & WIFI_ADHOC_STATE) 
 		networkType = Ndis802_11IBSS;
-	else if (fw_state | WIFI_STATION_STATE)
+	else if (fw_state & WIFI_STATION_STATE)
 		networkType = Ndis802_11Infrastructure;
-	else if (fw_state | WIFI_AP_STATE)
+	else if (fw_state & WIFI_AP_STATE)
 		networkType = Ndis802_11APMode;
 	else
 		return;

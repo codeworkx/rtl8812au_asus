@@ -2326,7 +2326,7 @@ void BlinkHandler(PLED_USB pLed)
 
 	//DBG_871X("%s (%s:%d)\n",__FUNCTION__, current->comm, current->pid);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))	
+	if( (padapter->bSurpriseRemoved == _TRUE) || (padapter->hw_init_completed == _FALSE))	
 	{
 		//DBG_871X("%s bSurpriseRemoved:%d, bDriverStopped:%d\n", __FUNCTION__, padapter->bSurpriseRemoved, padapter->bDriverStopped);
 		return;
@@ -2417,7 +2417,7 @@ void BlinkTimerCallback(void *data)
 
 	//DBG_871X("%s\n", __FUNCTION__);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))	
+	if( (padapter->bSurpriseRemoved == _TRUE) || (padapter->hw_init_completed == _FALSE))	
 	{
 		//DBG_871X("%s bSurpriseRemoved:%d, bDriverStopped:%d\n", __FUNCTION__, padapter->bSurpriseRemoved, padapter->bDriverStopped);
 		return;
@@ -4097,7 +4097,7 @@ SwLedControlMode9(
 
 		case LED_CTL_STOP_WPS_FAIL:		//WPS authentication fail	
 			//LED1 settings
-			if(bWPSOverLap == _FALSE)
+			//if(bWPSOverLap == _FALSE)
 			{
 				pLed1->CurrLedState = LED_BLINK_AUTH_ERROR;
 				pLed1->BlinkTimes = 50;
@@ -4107,13 +4107,13 @@ SwLedControlMode9(
 					pLed1->BlinkingLedState = RTW_LED_ON; 
 				_set_timer(&(pLed1->BlinkTimer), 0);
 			}
-			else
-			{
-				bWPSOverLap = _FALSE;
-				pLed1->CurrLedState = RTW_LED_OFF;
-				pLed1->BlinkingLedState = RTW_LED_OFF; 
-				_set_timer(&(pLed1->BlinkTimer), 0);
-			}
+			//else
+			//{
+			//	bWPSOverLap = _FALSE;
+			//	pLed1->CurrLedState = RTW_LED_OFF;
+			//	pLed1->BlinkingLedState = RTW_LED_OFF; 
+			//	_set_timer(&(pLed1->BlinkTimer), 0);
+			//}
 
 			//LED2 settings
 			pLed2->CurrLedState = RTW_LED_OFF;

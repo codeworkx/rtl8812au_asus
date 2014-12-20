@@ -582,7 +582,7 @@ post_process:
 		}
 
 		//call callback function for post-processed
-		if(pcmd->cmdcode <= (sizeof(rtw_cmd_callback) /sizeof(struct _cmd_callback)))
+		if(pcmd->cmdcode < (sizeof(rtw_cmd_callback) /sizeof(struct _cmd_callback)))
 		{
 			pcmd_callback = rtw_cmd_callback[pcmd->cmdcode].callback;
 			if(pcmd_callback == NULL)
@@ -2523,6 +2523,9 @@ void dynamic_chk_wk_hdl(_adapter *padapter)
 		traffic_status_watchdog(padapter, 0);
 	}
 
+#ifdef CONFIG_BEAMFORMING
+	beamforming_watchdog(padapter);
+#endif
 
 	rtw_hal_dm_watchdog(padapter);
 
@@ -2610,7 +2613,6 @@ _func_enter_;
 			break;
 		case LPS_CTRL_TRAFFIC_BUSY:
 			LPS_Leave(padapter, "LPS_CTRL_TRAFFIC_BUSY");
-
 		default:
 			break;
 	}
@@ -3040,43 +3042,41 @@ _func_exit_;
 
 #ifdef CONFIG_AP_MODE
 
+extern u32 g_wait_hiq_empty;
+
 static void rtw_chk_hi_queue_hdl(_adapter *padapter)
 {
-	int cnt=0;
 	struct sta_info *psta_bmc;
 	struct sta_priv *pstapriv = &padapter->stapriv;
+	u32 start = rtw_get_current_time();
+	u8 empty = _FALSE;
 
 	psta_bmc = rtw_get_bcmc_stainfo(padapter);
 	if(!psta_bmc)
 		return;
 
+	rtw_hal_get_hwreg(padapter, HW_VAR_CHK_HI_QUEUE_EMPTY, &empty);
+
+	while(_FALSE == empty && rtw_get_passing_time_ms(start) < g_wait_hiq_empty)
+	{
+		rtw_msleep_os(100);
+		rtw_hal_get_hwreg(padapter, HW_VAR_CHK_HI_QUEUE_EMPTY, &empty);
+	}
+
 	if(psta_bmc->sleepq_len==0)
-	{		
-		u8 val = 0;
-
-		//while((rtw_read32(padapter, 0x414)&0x00ffff00)!=0)
-		//while((rtw_read32(padapter, 0x414)&0x0000ff00)!=0)
-		
-		rtw_hal_get_hwreg(padapter, HW_VAR_CHK_HI_QUEUE_EMPTY, &val);		
-		
-		while(_FALSE == val)
+	{
+		if(empty == _SUCCESS)
 		{
-			rtw_msleep_os(100);
+			bool update_tim = _FALSE;
 
-			cnt++;
-			
-			if(cnt>10)
-				break;
+			if (pstapriv->tim_bitmap & BIT(0))
+				update_tim = _TRUE;
 
-			rtw_hal_get_hwreg(padapter, HW_VAR_CHK_HI_QUEUE_EMPTY, &val);
-		}
-
-		if(cnt<=10)
-		{
 			pstapriv->tim_bitmap &= ~BIT(0);
 			pstapriv->sta_dz_bitmap &= ~BIT(0);
-			
-			update_beacon(padapter, _TIM_IE_, NULL, _TRUE);
+
+			if (update_tim == _TRUE)
+				update_beacon(padapter, _TIM_IE_, NULL, _TRUE);
 		}
 		else //re check again
 		{

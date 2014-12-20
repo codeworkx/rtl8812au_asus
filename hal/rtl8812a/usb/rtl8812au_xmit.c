@@ -156,7 +156,7 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem, s32 sz ,u8 bag
 				SET_TX_DESC_AGG_ENABLE_8812(ptxdesc, 1);
 				SET_TX_DESC_MAX_AGG_NUM_8812(ptxdesc, 0x1f);
 				// Set A-MPDU aggregation.
-				SET_TX_DESC_AMPDU_DENSITY_8812(ptxdesc, pHalData->AMPDUDensity);
+				SET_TX_DESC_AMPDU_DENSITY_8812(ptxdesc, pattrib->ampdu_spacing);
 			} else {
 				SET_TX_DESC_AGG_BREAK_8812(ptxdesc, 1);
 			}
@@ -215,14 +215,6 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem, s32 sz ,u8 bag
 		if(IS_HARDWARE_TYPE_8821(padapter))
 			SET_TX_DESC_MBSSID_8821(ptxdesc, pattrib->mbssid);
 
-		//offset 20
-		SET_TX_DESC_RETRY_LIMIT_ENABLE_8812(ptxdesc, 1);
-		if (pattrib->retry_ctrl == _TRUE) {
-			SET_TX_DESC_DATA_RETRY_LIMIT_8812(ptxdesc, 6);
-		} else {
-			SET_TX_DESC_DATA_RETRY_LIMIT_8812(ptxdesc, 12);
-		}
-
 		SET_TX_DESC_USE_RATE_8812(ptxdesc, 1);
 
 #ifdef CONFIG_INTEL_PROXIM
@@ -233,7 +225,39 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem, s32 sz ,u8 bag
 		else
 #endif
 		{
-			SET_TX_DESC_TX_RATE_8812(ptxdesc, MRateToHwRate(pmlmeext->tx_rate));
+			SET_TX_DESC_TX_RATE_8812(ptxdesc, MRateToHwRate(pattrib->rate));
+		}
+
+		// VHT NDPA or HT NDPA Packet for Beamformer.
+		if((pattrib->subtype == WIFI_NDPA) || 
+			((pattrib->subtype == WIFI_ACTION_NOACK) && (pattrib->order == 1)))
+		{
+			SET_TX_DESC_NAV_USE_HDR_8812(ptxdesc, 1);
+
+			SET_TX_DESC_DATA_BW_8812(ptxdesc, BWMapping_8812(padapter,pattrib));
+			SET_TX_DESC_RTS_SC_8812(ptxdesc, SCMapping_8812(padapter,pattrib));
+
+			SET_TX_DESC_RETRY_LIMIT_ENABLE_8812(ptxdesc, 1);
+			SET_TX_DESC_DATA_RETRY_LIMIT_8812(ptxdesc, 5);
+			SET_TX_DESC_DISABLE_FB_8812(ptxdesc, 1);
+
+			//if(pattrib->rts_cca)
+			//{
+			//	SET_TX_DESC_NDPA_8812(ptxdesc, 2);
+			//}	
+			//else
+			{
+				SET_TX_DESC_NDPA_8812(ptxdesc, 1);
+			}
+		}
+		else
+		{
+			SET_TX_DESC_RETRY_LIMIT_ENABLE_8812(ptxdesc, 1);
+			if (pattrib->retry_ctrl == _TRUE) {
+				SET_TX_DESC_DATA_RETRY_LIMIT_8812(ptxdesc, 6);
+			} else {
+				SET_TX_DESC_DATA_RETRY_LIMIT_8812(ptxdesc, 12);
+			}
 		}
 
 #ifdef CONFIG_XMIT_ACK

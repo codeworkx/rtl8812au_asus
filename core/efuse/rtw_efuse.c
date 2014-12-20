@@ -430,7 +430,7 @@ efuse_OneByteRead(
 	IN	u8			*data,
 	IN	BOOLEAN		bPseudoTest)
 {
-	u8	tmpidx = 0;
+	u32	tmpidx = 0;
 	u8	bResult;
 	u8	readbyte;
 
@@ -775,6 +775,8 @@ u8 rtw_efuse_map_write(PADAPTER padapter, u16 addr, u16 cnts, u8 *data)
 	s32	i, j, idx;
 	u8	ret = _SUCCESS;
 	u16	mapLen=0;
+	EEPROM_EFUSE_PRIV *pEEPROM = GET_EEPROM_EFUSE_PRIV(padapter);
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 
 	EFUSE_GetEfuseDefinition(padapter, EFUSE_WIFI, TYPE_EFUSE_MAP_LEN, (PVOID)&mapLen, _FALSE);
 
@@ -809,6 +811,19 @@ u8 rtw_efuse_map_write(PADAPTER padapter, u16 addr, u16 cnts, u8 *data)
 			{
 				word_en &= ~BIT(i >> 1);
 				newdata[i] = data[idx];
+#ifdef CONFIG_RTL8723B					
+				 if( addr + idx == 0x8)
+				 {	
+					if (IS_C_CUT(pHalData->VersionID) || IS_B_CUT(pHalData->VersionID))
+					{
+						if(pEEPROM->adjuseVoltageVal == 6)
+						{
+								newdata[i] = map[addr + idx];
+							 	DBG_8192C(" %s ,\n adjuseVoltageVal = %d ,newdata[%d] = %x \n",__func__,pEEPROM->adjuseVoltageVal,i,newdata[i]);	 
+						}
+					}
+				  }
+#endif
 			}
 		}
 

@@ -364,18 +364,18 @@ typedef struct hal_com_data
 	u8	TxPwrLevelCck[RF_PATH_MAX_92C_88E][CHANNEL_MAX_NUMBER];
 	u8	TxPwrLevelHT40_1S[RF_PATH_MAX_92C_88E][CHANNEL_MAX_NUMBER];	// For HT 40MHZ pwr
 	u8	TxPwrLevelHT40_2S[RF_PATH_MAX_92C_88E][CHANNEL_MAX_NUMBER];	// For HT 40MHZ pwr
-	u8	TxPwrHt20Diff[RF_PATH_MAX_92C_88E][CHANNEL_MAX_NUMBER];// HT 20<->40 Pwr diff
+	s8	TxPwrHt20Diff[RF_PATH_MAX_92C_88E][CHANNEL_MAX_NUMBER];// HT 20<->40 Pwr diff
 	u8	TxPwrLegacyHtDiff[RF_PATH_MAX_92C_88E][CHANNEL_MAX_NUMBER];// For HT<->legacy pwr diff
 
 	// Power Limit Table for 2.4G
-	u8	TxPwrLimit_2_4G[MAX_REGULATION_NUM]
+	s8	TxPwrLimit_2_4G[MAX_REGULATION_NUM]
 						[MAX_2_4G_BANDWITH_NUM]
 	                                [MAX_RATE_SECTION_NUM]
 	                                [CHANNEL_MAX_NUMBER_2G]
 						[MAX_RF_PATH_NUM];
 
 	// Power Limit Table for 5G
-	u8	TxPwrLimit_5G[MAX_REGULATION_NUM]
+	s8	TxPwrLimit_5G[MAX_REGULATION_NUM]
 						[MAX_5G_BANDWITH_NUM]
 						[MAX_RATE_SECTION_NUM]
 						[CHANNEL_MAX_NUMBER_5G]
@@ -495,7 +495,7 @@ typedef struct hal_com_data
 	u8	p2p_ps_offload;
 #endif
 
-	u8	AMPDUDensity;
+	//u8	AMPDUDensity;
 
 	// Auto FSM to Turn On, include clock, isolation, power control for MAC only
 	u8	bMacPwrCtrlOn;
@@ -525,6 +525,9 @@ typedef struct hal_com_data
 	// HIQ, MID, LOW, PUB free pages; padapter->xmitpriv.free_txpg
 	u8			SdioTxFIFOFreePage[SDIO_TX_FREE_PG_QUEUE];
 	_lock		SdioTxFIFOFreePageLock;
+	u8			SdioTxOQTMaxFreeSpace;
+	u8			SdioTxOQTFreeSpace;
+	
 
 	//
 	// SDIO Rx FIFO related.
@@ -590,7 +593,8 @@ typedef struct hal_com_data
 	
 	u8	bInterruptMigration;
 	u8	bDisableTxInt;
-	u8	bGpioHwWpsPbc;
+
+	u16	RxTag;	
 #endif //CONFIG_PCI_HCI
 
 	struct dm_priv	dmpriv;
@@ -608,9 +612,11 @@ typedef struct hal_com_data
 #endif // CONFIG_BT_COEXIST
 
 #if defined(CONFIG_RTL8723A) || defined(CONFIG_RTL8723B)
+	#ifndef CONFIG_PCI_HCI	// mutual exclusive with PCI -- so they're SDIO and GSPI 
 	// Interrupt relatd register information.
 	u32			SysIntrStatus;
 	u32			SysIntrMask;
+	#endif
 #endif //endif CONFIG_RTL8723A
 
 	

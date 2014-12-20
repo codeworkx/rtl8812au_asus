@@ -718,6 +718,33 @@ ODM_FillH2CCmd(
 #endif
 
 
+u4Byte
+ODM_GetCurrentTime(	
+	IN 	PDM_ODM_T		pDM_Odm
+	)
+{
+#if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
+	return  0;
+#elif(DM_ODM_SUPPORT_TYPE & ODM_CE)
+	return rtw_get_current_time();
+#elif(DM_ODM_SUPPORT_TYPE & ODM_WIN)	
+	return  0;
+#endif
+}
 
+s4Byte
+ODM_GetProgressingTime(	
+	IN 	PDM_ODM_T		pDM_Odm,
+	IN	u4Byte			Start_Time
+	)
+{
+#if(DM_ODM_SUPPORT_TYPE & (ODM_AP|ODM_ADSL))
+	return  0;
+#elif(DM_ODM_SUPPORT_TYPE & ODM_CE)
+	return rtw_get_passing_time_ms(Start_Time);
+#elif(DM_ODM_SUPPORT_TYPE & ODM_WIN)	
+	return  0;
+#endif
+}
 
 

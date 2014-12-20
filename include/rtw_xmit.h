@@ -144,8 +144,24 @@ do{\
 
 #define HWXMIT_ENTRY	4
 
-#if defined(CONFIG_RTL8812A) || defined(CONFIG_RTL8821A)|| defined(CONFIG_RTL8192E) || defined(CONFIG_RTL8723B)
+// For Buffer Descriptor ring architecture
+#ifdef BUF_DESC_ARCH	
+#if defined (CONFIG_RTL8192E)
+#define TX_BUFFER_SEG_NUM 	1 // 0:2 seg, 1: 4 seg, 2: 8 seg.  	
+#endif
+#endif
+
+#if defined(CONFIG_RTL8812A) || defined(CONFIG_RTL8821A)|| defined(CONFIG_RTL8723B)
 #define TXDESC_SIZE 40
+//8192EE_TODO
+#elif defined (CONFIG_RTL8192E) // this section is defined for buffer descriptor ring architecture
+	#ifdef CONFIG_PCI_HCI
+		#define TXDESC_SIZE ((TX_BUFFER_SEG_NUM ==0)?16: ((TX_BUFFER_SEG_NUM ==1)? 32:64) )
+		#define TX_WIFI_INFO_SIZE 40  
+	#else  //USB or SDIO
+		#define TXDESC_SIZE 40
+	#endif
+//8192EE_TODO
 #else
 #define TXDESC_SIZE 32
 #endif
@@ -169,9 +185,13 @@ do{\
 #endif
 
 #ifdef CONFIG_PCI_HCI
+#if defined(CONFIG_RTL8192E) // this section is defined for buffer descriptor ring architecture
+#define TXDESC_OFFSET TX_WIFI_INFO_SIZE
+#else
 #define TXDESC_OFFSET 0
+#endif 
 #define TX_DESC_NEXT_DESC_OFFSET	(TXDESC_SIZE + 8)
-#endif
+#endif //CONFIG_PCI_HCI
 
 enum TXDESC_SC{
 	SC_DONT_CARE = 0x00,
@@ -186,6 +206,20 @@ enum TXDESC_SC{
 #define TXDESC_40_BYTES
 #endif
 
+#if defined(CONFIG_RTL8192E) && defined(CONFIG_PCI_HCI) //8192ee
+//8192EE_TODO
+struct tx_desc
+{
+	unsigned int txdw0;
+	unsigned int txdw1;
+	unsigned int txdw2;
+	unsigned int txdw3;
+	unsigned int txdw4;
+	unsigned int txdw5;
+	unsigned int txdw6;
+	unsigned int txdw7;
+};
+#else
 struct tx_desc
 {
 	unsigned int txdw0;
@@ -216,7 +250,7 @@ struct tx_desc
 	unsigned int txdw15;
 #endif
 };
-
+#endif
 
 union txdesc {
 	struct tx_desc txdesc;
@@ -331,10 +365,12 @@ struct pkt_attrib
 	u8	ch_offset;//PRIME_CHNL_OFFSET
 	u8	sgi;//short GI
 	u8	ampdu_en;//tx ampdu enable
+	u8	ampdu_spacing; //ampdu_min_spacing for peer sta's rx
 	u8	mdata;//more data bit
 	u8	pctrl;//per packet txdesc control enable
 	u8	triggered;//for ap mode handling Power Saving sta
 	u8	qsel;
+	u8	order;//order bit
 	u8	eosp;
 	u8	rate;
 	u8	intel_proxim;
@@ -732,7 +768,7 @@ extern s32 rtw_free_xmitbuf(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitb
 void rtw_count_tx_stats(_adapter *padapter, struct xmit_frame *pxmitframe, int sz);
 extern void rtw_update_protection(_adapter *padapter, u8 *ie, uint ie_len);
 static s32 update_attrib_sec_info(_adapter *padapter, struct pkt_attrib *pattrib, struct sta_info *psta);
-static void update_attrib_phy_info(struct pkt_attrib *pattrib, struct sta_info *psta);
+static void update_attrib_phy_info(_adapter *padapter, struct pkt_attrib *pattrib, struct sta_info *psta);
 extern s32 rtw_make_wlanhdr(_adapter *padapter, u8 *hdr, struct pkt_attrib *pattrib);
 extern s32 rtw_put_snap(u8 *data, u16 h_proto);
 

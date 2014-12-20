@@ -249,7 +249,10 @@ struct txrpt_ccx_88e {
 #define txrpt_ccx_sw_88e(txrpt_ccx) ((txrpt_ccx)->sw0 + ((txrpt_ccx)->sw1<<8))
 #define txrpt_ccx_qtime_88e(txrpt_ccx) ((txrpt_ccx)->ccx_qtime0+((txrpt_ccx)->ccx_qtime1<<8))
 
-void rtl8188e_fill_fake_txdesc(PADAPTER	padapter,u8*pDesc,u32 BufferLen,u8 IsPsPoll,u8	IsBTQosNull);
+#define SET_TX_DESC_SEC_TYPE_8188E(__pTxDesc, __Value) SET_BITS_TO_LE_4BYTE(__pTxDesc+4, 22, 2, __Value)
+
+void rtl8188e_fill_fake_txdesc(PADAPTER	padapter,u8*pDesc,u32 BufferLen,
+		u8 IsPsPoll,u8	IsBTQosNull, u8 bDataFrame);
 #ifdef CONFIG_SDIO_HCI
 s32 rtl8188es_init_xmit_priv(PADAPTER padapter);
 void rtl8188es_free_xmit_priv(PADAPTER padapter);

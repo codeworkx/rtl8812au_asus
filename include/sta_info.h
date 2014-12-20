@@ -140,6 +140,9 @@ struct sta_info {
 	u8	wireless_mode;	// NETWORK_TYPE
 	u8	bw_mode;
 
+	u8	ldpc;
+	u8	stbc;
+
 	struct stainfo_stats sta_stats;
 
 #ifdef CONFIG_TDLS

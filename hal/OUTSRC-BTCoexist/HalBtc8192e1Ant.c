@@ -2437,8 +2437,16 @@ halbtc8192e1ant_InitCoexDm(
 // extern function start with EXhalbtc8192e1ant_
 //============================================================
 VOID
-EXhalbtc8192e1ant_InitHwConfig(
+EXhalbtc8192e1ant_PowerOnSetting(
 	IN	PBTC_COEXIST		pBtCoexist
+	)
+{
+}
+
+VOID
+EXhalbtc8192e1ant_InitHwConfig(
+	IN	PBTC_COEXIST		pBtCoexist,
+	IN	BOOLEAN				bWifiOnly
 	)
 {
 	u4Byte	u4Tmp=0;

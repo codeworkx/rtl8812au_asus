@@ -3791,8 +3791,16 @@ halbtc8192e2ant_InitHwConfig(
 // extern function start with EXhalbtc8192e2ant_
 //============================================================
 VOID
-EXhalbtc8192e2ant_InitHwConfig(
+EXhalbtc8192e2ant_PowerOnSetting(
 	IN	PBTC_COEXIST		pBtCoexist
+	)
+{
+}
+
+VOID
+EXhalbtc8192e2ant_InitHwConfig(
+	IN	PBTC_COEXIST		pBtCoexist,
+	IN	BOOLEAN				bWifiOnly
 	)
 {
 	halbtc8192e2ant_InitHwConfig(pBtCoexist, TRUE);

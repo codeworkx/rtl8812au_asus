@@ -179,6 +179,7 @@ typedef enum _HAL_DEF_VARIABLE{
 	HAL_DEF_PCI_AMD_L1_SUPPORT,
 	HAL_DEF_PCI_ASPM_OSC, // Support for ASPM OSC, added by Roger, 2013.03.27.
 	HAL_DEF_MACID_SLEEP, // Support for MACID sleep
+	HAL_DEF_DBG_RX_INFO_DUMP,
 }HAL_DEF_VARIABLE;
 
 typedef enum _HAL_ODM_VARIABLE{

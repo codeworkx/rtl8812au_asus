@@ -697,6 +697,10 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 		|| !rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE)
 		#endif
 		|| rtw_is_scan_deny(padapter)
+#ifdef CONFIG_TDLS
+		// TDLS link is established.
+		|| ( padapter->tdlsinfo.link_established == _TRUE )
+#endif // CONFIG_TDLS		
 	)
 		return _FALSE;
 
@@ -2153,9 +2157,11 @@ _func_enter_;
 	#endif //CONFIG_HAS_EARLYSUSPEND || CONFIG_ANDROID_POWER
 
 #ifdef CONFIG_PNO_SUPPORT
+	pwrctrlpriv->pno_inited = _FALSE;
 	pwrctrlpriv->pnlo_info = NULL;
 	pwrctrlpriv->pscan_info = NULL;
 	pwrctrlpriv->pno_ssid_list = NULL;
+	pwrctrlpriv->pno_in_resume = _TRUE;
 #endif
 
 _func_exit_;
@@ -2250,9 +2256,7 @@ inline void rtw_set_do_late_resume(struct pwrctrl_priv *pwrpriv, bool enable)
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-#if defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
 extern int rtw_resume_process(_adapter *padapter);
-#endif
 static void rtw_early_suspend(struct early_suspend *h)
 {
 	struct pwrctrl_priv *pwrpriv = container_of(h, struct pwrctrl_priv, early_suspend);
@@ -2270,10 +2274,8 @@ static void rtw_late_resume(struct early_suspend *h)
 	DBG_871X("%s\n",__FUNCTION__);
 
 	if(pwrpriv->do_late_resume) {
-		#if defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
 		rtw_set_do_late_resume(pwrpriv, _FALSE);
 		rtw_resume_process(adapter);
-		#endif
 	}
 }
 
@@ -2420,12 +2422,6 @@ int _rtw_pwr_wakeup(_adapter *padapter, u32 ips_deffer_ms, const char *caller)
 	}
 #endif
 
-	//System suspend is not allowed to wakeup
-	if((pwrpriv->bInternalAutoSuspend == _FALSE) && (_TRUE == pwrpriv->bInSuspend )){
-		ret = _FAIL;
-		goto exit;
-	}
-
 	if (pwrpriv->bInternalAutoSuspend == _FALSE && pwrpriv->bInSuspend) {
 		DBG_871X("%s wait bInSuspend...\n", __func__);
 		while (pwrpriv->bInSuspend 
@@ -2438,6 +2434,13 @@ int _rtw_pwr_wakeup(_adapter *padapter, u32 ips_deffer_ms, const char *caller)
 			DBG_871X("%s wait bInSuspend timeout\n", __func__);
 		else
 			DBG_871X("%s wait bInSuspend done\n", __func__);
+	}
+
+	//System suspend is not allowed to wakeup
+	if((pwrpriv->bInternalAutoSuspend == _FALSE) && (_TRUE == pwrpriv->bInSuspend )){
+		pwrpriv->bInSuspend = _FALSE;
+		ret = _FAIL;
+		goto exit;
 	}
 
 	//block???

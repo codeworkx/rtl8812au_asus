@@ -261,10 +261,13 @@ void Hal_MPT_CCKTxPowerAdjustbyIndex(PADAPTER pAdapter, BOOLEAN beven)
 			}
 		}
 
-		if (Action == 1)
+		if (Action == 1) {
+			if (CCK_index_old == 0)
+				CCK_index_old = 1;
 			CCK_index = CCK_index_old - 1;
-		else
+		} else {
 			CCK_index = CCK_index_old + 1;
+		}
 
 		if (CCK_index == CCK_TABLE_SIZE) {
 			CCK_index = CCK_TABLE_SIZE -1;
@@ -375,12 +378,12 @@ void Hal_SetCCKTxPower(PADAPTER pAdapter, u8 *TxPower)
 	// rf-A cck tx power
 	write_bbreg(pAdapter, rTxAGC_A_CCK1_Mcs32, bMaskByte1, TxPower[RF_PATH_A]);
 	tmpval = (TxPower[RF_PATH_A]<<16) | (TxPower[RF_PATH_A]<<8) | TxPower[RF_PATH_A];
-	write_bbreg(pAdapter, rTxAGC_B_CCK11_A_CCK2_11, 0xffffff00, tmpval);
+	write_bbreg(pAdapter, rTxAGC_B_CCK11_A_CCK2_11, bMaskH3Bytes, tmpval);
 
 	// rf-B cck tx power
 	write_bbreg(pAdapter, rTxAGC_B_CCK11_A_CCK2_11, bMaskByte0, TxPower[RF_PATH_B]);
 	tmpval = (TxPower[RF_PATH_B]<<16) | (TxPower[RF_PATH_B]<<8) | TxPower[RF_PATH_B];
-	write_bbreg(pAdapter, rTxAGC_B_CCK1_55_Mcs32, 0xffffff00, tmpval);
+	write_bbreg(pAdapter, rTxAGC_B_CCK1_55_Mcs32, bMaskH3Bytes, tmpval);
 
 	RT_TRACE(_module_mp_, _drv_notice_,
 		 ("-SetCCKTxPower: A[0x%02x] B[0x%02x]\n",
@@ -809,13 +812,13 @@ void Hal_SetSingleToneTx(PADAPTER pAdapter, u8 bStart)
 	{
 		case ANTENNA_A:
 		default:
-			rfPath = RF_PATH_A;
+			pMptCtx->MptRfPath = rfPath = RF_PATH_A;
 			break;
 		case ANTENNA_B:
-			rfPath = RF_PATH_B;
+			pMptCtx->MptRfPath = rfPath = RF_PATH_B;
 			break;
 		case ANTENNA_C:
-			rfPath = RF_PATH_C;
+			pMptCtx->MptRfPath = rfPath = RF_PATH_C;
 			break;
 	}
 
@@ -824,7 +827,7 @@ void Hal_SetSingleToneTx(PADAPTER pAdapter, u8 bStart)
 	{
 		if (IS_HARDWARE_TYPE_JAGUAR(pAdapter)) 
 		{
-		u1Byte p = ODM_RF_PATH_A;
+			u1Byte p = ODM_RF_PATH_A;
 
 			regRF0x0 = PHY_QueryRFReg(pAdapter, ODM_RF_PATH_A, RF_AC_Jaguar, bRFRegOffsetMask);
 			reg0xCB0 = PHY_QueryBBReg(pAdapter, rA_RFE_Pinmux_Jaguar, bMaskDWord);

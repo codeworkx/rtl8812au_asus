@@ -251,7 +251,7 @@ ODM_TxPwrTrackSetPwr8812A(
 
 				ODM_RT_TRACE(pDM_Odm,ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,("******Path_A Over BBSwing Limit , PwrTrackingLimit = %d , Remnant TxAGC Value = %d \n", PwrTrackingLimit, pDM_Odm->Remnant_OFDMSwingIdx[RFPath]));
 			}
-			else if (Final_OFDM_Swing_Index < 0)
+			else if (Final_OFDM_Swing_Index <= 0)
 			{
 				pDM_Odm->Remnant_CCKSwingIdx= Final_CCK_Swing_Index;            // CCK Follow the same compensate value as Path A
 				pDM_Odm->Remnant_OFDMSwingIdx[RFPath] = Final_OFDM_Swing_Index;     
@@ -298,7 +298,7 @@ ODM_TxPwrTrackSetPwr8812A(
 
 				ODM_RT_TRACE(pDM_Odm,ODM_COMP_TX_PWR_TRACK, ODM_DBG_LOUD,("******Path_B Over BBSwing Limit , PwrTrackingLimit = %d , Remnant TxAGC Value = %d \n", PwrTrackingLimit, pDM_Odm->Remnant_OFDMSwingIdx[RFPath]));
 			}
-			else if (Final_OFDM_Swing_Index < 0)
+			else if (Final_OFDM_Swing_Index <= 0)
 			{
 				pDM_Odm->Remnant_OFDMSwingIdx[RFPath] = Final_OFDM_Swing_Index;     
 
@@ -1403,6 +1403,8 @@ PHY_IQCalibrate_8812A(
 	)
 {
 	u4Byte			counter = 0;
+	u4Byte			StartTime; 
+	s4Byte			ProgressingTime;
 
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(pAdapter);	
@@ -1428,6 +1430,8 @@ PHY_IQCalibrate_8812A(
 		return;
 #endif
 
+	StartTime = ODM_GetCurrentTime( pDM_Odm);
+
 #if MP_DRIVER == 1	
 	if( ! (pMptCtx->bSingleTone || pMptCtx->bCarrierSuppression) )
 #endif		
@@ -1442,6 +1446,8 @@ PHY_IQCalibrate_8812A(
 			phy_IQCalibrate_8812A(pDM_Odm, pHalData->CurrentChannel);
 		}
 	}
+	ProgressingTime = ODM_GetProgressingTime( pDM_Odm, StartTime);
+	ODM_RT_TRACE(pDM_Odm,ODM_COMP_CALIBRATION, ODM_DBG_LOUD,  ("IQK ProgressingTime = %d\n", ProgressingTime));
 }
 
 
@@ -1451,6 +1457,9 @@ PHY_LCCalibrate_8812A(
 	)
 {
 	BOOLEAN 		bStartContTx = FALSE, bSingleTone = FALSE, bCarrierSuppression = FALSE;
+	u4Byte			StartTime; 
+	s4Byte			ProgressingTime;
+
 	
 #if !(DM_ODM_SUPPORT_TYPE & ODM_AP)
 	PADAPTER 		pAdapter = pDM_Odm->Adapter;
@@ -1468,6 +1477,7 @@ PHY_LCCalibrate_8812A(
 	#endif//(MP_DRIVER == 1)
 #endif	
 
+	StartTime = ODM_GetCurrentTime( pDM_Odm);
 	ODM_RT_TRACE(pDM_Odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("===> PHY_LCCalibrate_8812A\n"));
 
 #if (MP_DRIVER == 1)	
@@ -1475,6 +1485,8 @@ PHY_LCCalibrate_8812A(
 #endif 
 
 	ODM_RT_TRACE(pDM_Odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("<=== PHY_LCCalibrate_8812A\n"));
+	ProgressingTime = ODM_GetProgressingTime( pDM_Odm, StartTime);
+	ODM_RT_TRACE(pDM_Odm,ODM_COMP_CALIBRATION, ODM_DBG_LOUD,  ("LCK ProgressingTime = %d\n", ProgressingTime));
 
 }
 
@@ -1873,15 +1885,13 @@ _DPK_EnableDP(
 
 	for(i=0;i<16;i++)
 		{
-			if(((6-zeropoint)+i*2) > 24)
+			pwsf1 = (6-zeropoint)+i*2;
+			if(pwsf1 > 24)
 				pwsf1 = 24;
-			else
-				pwsf1 = (6-zeropoint)+i*2;
 
-			if(((6-zeropoint-1)+i*2) > 24)
+			pwsf2 = (6-zeropoint-1)+i*2;
+			if(pwsf2 > 24)
 				pwsf2 = 24;
-			else
-				pwsf2 = (6-zeropoint-1)+i*2;
 
 			ODM_Write4Byte(pDM_Odm, 0xce4+pagesel, 0x00000001 | i<<1 | (PWSF[pwsf1]<<8) | (PWSF[pwsf2]<<16));
 			ODM_RT_TRACE(pDM_Odm, ODM_COMP_CALIBRATION, ODM_DBG_LOUD, ("0x%x\n", ODM_Read4Byte(pDM_Odm, 0xce4+pagesel)));

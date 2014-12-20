@@ -104,6 +104,15 @@
 #define		_48M_RATE_	10
 #define		_54M_RATE_	11
 
+/********************************************************
+MCS rate definitions
+*********************************************************/
+#define MCS_RATE_1R	(0x000000ff)
+#define MCS_RATE_2R	(0x0000ffff)
+#define MCS_RATE_3R	(0x00ffffff)
+#define MCS_RATE_4R	(0xffffffff)
+#define MCS_RATE_2R_13TO15_OFF	(0x00001fff)
+
 
 extern unsigned char RTW_WPA_OUI[];
 extern unsigned char WMM_OUI[];
@@ -553,6 +562,9 @@ struct mlme_ext_priv
 	struct p2p_channels channel_list;
 	unsigned char	basicrate[NumRates];
 	unsigned char	datarate[NumRates];
+#ifdef CONFIG_80211N_HT
+	unsigned char default_supported_mcs_set[16];
+#endif
 	
 	struct ss_res		sitesurvey_res;		
 	struct mlme_ext_info	mlmext_info;//for sta/adhoc mode, including current scanning/connecting/connected related info.
@@ -600,6 +612,7 @@ struct mlme_ext_priv
 	
 };
 
+void init_mlme_default_rate_set(_adapter* padapter);
 int init_mlme_ext_priv(_adapter* padapter);
 int init_hw_mlme_ext(_adapter *padapter);
 void free_mlme_ext_priv (struct mlme_ext_priv *pmlmeext);
@@ -615,6 +628,7 @@ unsigned char networktype_to_raid_ex(_adapter *adapter, struct sta_info *psta);
 
 u8 judge_network_type(_adapter *padapter, unsigned char *rate, int ratelen);
 void get_rate_set(_adapter *padapter, unsigned char *pbssrate, int *bssrate_len);
+void set_mcs_rate_by_mask(u8 *mcs_set, u32 mask);
 void UpdateBrateTbl(_adapter *padapter,u8 *mBratesOS);
 void UpdateBrateTblForSoftAP(u8 *bssrateset, u32 bssratelen);
 void change_band_update_ie(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
@@ -647,8 +661,18 @@ unsigned int decide_wait_for_beacon_timeout(unsigned int bcn_interval);
 
 void read_cam(_adapter *padapter ,u8 entry, u8 *get_key);
 
-void write_cam(_adapter *padapter, u8 entry, u16 ctrl, u8 *mac, u8 *key);
-void clear_cam_entry(_adapter *padapter, u8 entry);
+/* modify HW only */
+void _write_cam(_adapter *padapter, u8 entry, u16 ctrl, u8 *mac, u8 *key);
+void _clear_cam_entry(_adapter *padapter, u8 entry);
+void write_cam_from_cache(_adapter *adapter, u8 id);
+
+/* modify both HW and cache */
+void write_cam(_adapter *padapter, u8 id, u16 ctrl, u8 *mac, u8 *key);
+void clear_cam_entry(_adapter *padapter, u8 id);
+
+/* modify cache only */
+void write_cam_cache(_adapter *adapter, u8 id, u16 ctrl, u8 *mac, u8 *key);
+void clear_cam_cache(_adapter *adapter, u8 id);
 
 void invalidate_cam_all(_adapter *padapter);
 void CAM_empty_entry(PADAPTER Adapter, u8 ucIndex);
@@ -685,6 +709,7 @@ void HTOnAssocRsp(_adapter *padapter);
 
 void ERP_IE_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE);
 void VCS_update(_adapter *padapter, struct sta_info *psta);
+void	update_ldpc_stbc_cap(struct sta_info *psta);
 
 void update_beacon_info(_adapter *padapter, u8 *pframe, uint len, struct sta_info *psta);
 int rtw_check_bcn_info(ADAPTER *Adapter, u8 *pframe, u32 packet_len);
@@ -725,8 +750,10 @@ void report_surveydone_event(_adapter *padapter);
 void report_del_sta_event(_adapter *padapter, unsigned char* MacAddr, unsigned short reason);
 void report_add_sta_event(_adapter *padapter, unsigned char* MacAddr, int cam_idx);
 bool rtw_port_switch_chk(_adapter *adapter);
+void report_wmm_edca_update(_adapter *padapter);
 
 void beacon_timing_control(_adapter *padapter);
+u8 chk_bmc_sleepq_cmd(_adapter* padapter);
 extern u8 set_tx_beacon_cmd(_adapter*padapter);
 unsigned int setup_beacon_frame(_adapter *padapter, unsigned char *beacon_frame);
 void update_mgnt_tx_rate(_adapter *padapter, u8 rate);
@@ -894,6 +921,7 @@ u8 add_ba_hdl(_adapter *padapter, unsigned char *pbuf);
 
 u8 mlme_evt_hdl(_adapter *padapter, unsigned char *pbuf);
 u8 h2c_msg_hdl(_adapter *padapter, unsigned char *pbuf);
+u8 chk_bmc_sleepq_hdl(_adapter *padapter, unsigned char *pbuf);
 u8 tx_beacon_hdl(_adapter *padapter, unsigned char *pbuf);
 u8 set_ch_hdl(_adapter *padapter, u8 *pbuf);
 u8 set_chplan_hdl(_adapter *padapter, unsigned char *pbuf);
@@ -975,6 +1003,7 @@ struct cmd_hdl wlancmds[] =
 
 	GEN_MLME_EXT_HANDLER(sizeof(struct SetChannelSwitch_param), set_csa_hdl) /*61*/
 	GEN_MLME_EXT_HANDLER(sizeof(struct TDLSoption_param), tdls_hdl) /*62*/
+	GEN_MLME_EXT_HANDLER(0, chk_bmc_sleepq_hdl) /*63*/
 };
 
 #endif
@@ -1035,6 +1064,7 @@ enum rtw_c2h_event
 	GEN_EVT_CODE(_C2HBCN),
 	GEN_EVT_CODE(_ReportPwrState),		//filen: only for PCIE, USB	
 	GEN_EVT_CODE(_CloseRF),				//filen: only for PCIE, work around ASPM
+	GEN_EVT_CODE(_WMM),					/*25*/
  	MAX_C2HEVT
 };
 
@@ -1069,6 +1099,8 @@ static struct fwevent wlanevents[] =
 	{0, NULL},
 	{0, &rtw_cpwm_event_callback},
 	{0, NULL},
+	{0, &rtw_wmm_event_callback},
+
 };
 
 #endif//_RTL8192C_CMD_C_

@@ -800,16 +800,15 @@ _func_enter_;
 
 			prtnframe=precv_frame;
 			//check is the EAPOL frame or not (Rekey)
-			if(ether_type == eapol_type){
-
-				RT_TRACE(_module_rtl871x_recv_c_,_drv_notice_,("########portctrl:ether_type == 0x888e\n"));
+			//if(ether_type == eapol_type){
+			//	RT_TRACE(_module_rtl871x_recv_c_,_drv_notice_,("########portctrl:ether_type == 0x888e\n"));
 				//check Rekey
 
-				prtnframe=precv_frame;
-			}
-			else{
-				RT_TRACE(_module_rtl871x_recv_c_,_drv_info_,("########portctrl:ether_type=0x%04x\n", ether_type));
-			}
+			//	prtnframe=precv_frame;
+			//}
+			//else{
+			//	RT_TRACE(_module_rtl871x_recv_c_,_drv_info_,("########portctrl:ether_type=0x%04x\n", ether_type));
+			//}
 		}
 	}
 	else
@@ -1584,10 +1583,10 @@ _func_exit_;
 sint validate_recv_ctrl_frame(_adapter *padapter, union recv_frame *precv_frame);
 sint validate_recv_ctrl_frame(_adapter *padapter, union recv_frame *precv_frame)
 {
-#ifdef CONFIG_AP_MODE
 	struct rx_pkt_attrib *pattrib = &precv_frame->u.hdr.attrib;
 	struct sta_priv *pstapriv = &padapter->stapriv;
 	u8 *pframe = precv_frame->u.hdr.rx_data;
+	struct sta_info *psta=NULL;
 	//uint len = precv_frame->u.hdr.len;
 		
 	//DBG_871X("+validate_recv_ctrl_frame\n");
@@ -1603,23 +1602,27 @@ sint validate_recv_ctrl_frame(_adapter *padapter, union recv_frame *precv_frame)
 		return _FAIL;
 	}
 
+	psta = rtw_get_stainfo(pstapriv, GetAddr2Ptr(pframe));
+	if (psta==NULL)
+	{
+		return _FAIL;
+	}
+
+	//for rx pkt statistics
+	psta->sta_stats.rx_ctrl_pkts++;
+
 	//only handle ps-poll
 	if(GetFrameSubType(pframe) == WIFI_PSPOLL)
 	{
+#ifdef CONFIG_AP_MODE
 		u16 aid;
 		u8 wmmps_ac=0;	
-		struct sta_info *psta=NULL;
 	
 		aid = GetAid(pframe);
-		psta = rtw_get_stainfo(pstapriv, GetAddr2Ptr(pframe));
-		
-		if((psta==NULL) || (psta->aid!=aid))
+		if(psta->aid!=aid)
 		{
 			return _FAIL;
 		}
-
-		//for rx pkt statistics
-		psta->sta_stats.rx_ctrl_pkts++;
 
 		switch(pattrib->priority)
 		{
@@ -1677,20 +1680,20 @@ sint validate_recv_ctrl_frame(_adapter *padapter, union recv_frame *precv_frame)
 
 				if(psta->sleepq_len>0)
 					pxmitframe->attrib.mdata = 1;
-                                else
+				else
 					pxmitframe->attrib.mdata = 0;
 
 				pxmitframe->attrib.triggered = 1;
 
-	                        //DBG_871X("handling ps-poll, q_len=%d, tim=%x\n", psta->sleepq_len, pstapriv->tim_bitmap);
+				//DBG_871X("handling ps-poll, q_len=%d, tim=%x\n", psta->sleepq_len, pstapriv->tim_bitmap);
 
 #if 0
-                                _exit_critical_bh(&psta->sleep_q.lock, &irqL);	
+				_exit_critical_bh(&psta->sleep_q.lock, &irqL);
 				if(rtw_hal_xmit(padapter, pxmitframe) == _TRUE)
-				{		
+				{
 					rtw_os_xmit_complete(padapter, pxmitframe);
 				}
-                                _enter_critical_bh(&psta->sleep_q.lock, &irqL);	
+				_enter_critical_bh(&psta->sleep_q.lock, &irqL);	
 #endif
 				rtw_hal_xmitframe_enqueue(padapter, pxmitframe);
 
@@ -1736,14 +1739,15 @@ sint validate_recv_ctrl_frame(_adapter *padapter, union recv_frame *precv_frame)
 					//update_BCNTIM(padapter);
 					update_beacon(padapter, _TIM_IE_, NULL, _TRUE);
 				}
-				
 			}				
-			
 		}
-		
+#endif //CONFIG_AP_MODE
 	}
-	
+	else if(GetFrameSubType(pframe) == WIFI_NDPA) {
+#ifdef CONFIG_BEAMFORMING
+		beamforming_get_ndpa_frame(padapter, precv_frame);
 #endif
+	}
 
 	return _FAIL;
 
@@ -2964,6 +2968,9 @@ int amsdu_to_msdu(_adapter *padapter, union recv_frame *prframe)
 int check_indicate_seq(struct recv_reorder_ctrl *preorder_ctrl, u16 seq_num);
 int check_indicate_seq(struct recv_reorder_ctrl *preorder_ctrl, u16 seq_num)
 {
+	PADAPTER padapter = preorder_ctrl->padapter;
+	struct dvobj_priv *psdpriv = padapter->dvobj;
+	struct debug_priv *pdbgpriv = &psdpriv->drv_dbg;
 	u8	wsize = preorder_ctrl->wsize_b;
 	u16	wend = (preorder_ctrl->indicate_seq + wsize -1) & 0xFFF;//% 4096;
 
@@ -3020,7 +3027,7 @@ int check_indicate_seq(struct recv_reorder_ctrl *preorder_ctrl, u16 seq_num)
 			preorder_ctrl->indicate_seq = seq_num + 1 -wsize;
 		else
 			preorder_ctrl->indicate_seq = 0xFFF - (wsize - (seq_num + 1)) + 1;
-
+		pdbgpriv->dbg_rx_ampdu_window_shift_cnt++;
 		#ifdef DBG_RX_SEQ
 		DBG_871X("DBG_RX_SEQ %s:%d SN_LESS(wend, seq_num) IndicateSeq: %d, NewSeq: %d\n", __FUNCTION__, __LINE__,
 			preorder_ctrl->indicate_seq, seq_num);
@@ -3094,6 +3101,18 @@ int enqueue_reorder_recvframe(struct recv_reorder_ctrl *preorder_ctrl, union rec
 
 }
 
+void recv_indicatepkts_pkt_loss_cnt(struct debug_priv *pdbgpriv, u64 prev_seq, u64 current_seq);
+void recv_indicatepkts_pkt_loss_cnt(struct debug_priv *pdbgpriv, u64 prev_seq, u64 current_seq)
+{
+	if(current_seq < prev_seq)
+	{
+		pdbgpriv->dbg_rx_ampdu_loss_count+= (4096 + current_seq - prev_seq);
+	}
+	else
+	{
+		pdbgpriv->dbg_rx_ampdu_loss_count+= (current_seq - prev_seq);
+	}
+}
 int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *preorder_ctrl, int bforced);
 int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *preorder_ctrl, int bforced)
 {
@@ -3106,6 +3125,8 @@ int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *pre
 	int bPktInBuf = _FALSE;
 	struct recv_priv *precvpriv = &padapter->recvpriv;
 	_queue *ppending_recvframe_queue = &preorder_ctrl->pending_recvframe_queue;
+	struct dvobj_priv *psdpriv = padapter->dvobj;
+	struct debug_priv *pdbgpriv = &psdpriv->drv_dbg;
 
 	//DbgPrint("+recv_indicatepkts_in_order\n");
 
@@ -3124,6 +3145,7 @@ int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *pre
 	// Handling some condition for forced indicate case.
 	if(bforced==_TRUE)
 	{
+		pdbgpriv->dbg_rx_ampdu_forced_indicate_count++;
 		if(rtw_is_list_empty(phead))
 		{
 			// _exit_critical_ex(&ppending_recvframe_queue->lock, &irql);
@@ -3131,14 +3153,14 @@ int recv_indicatepkts_in_order(_adapter *padapter, struct recv_reorder_ctrl *pre
 			return _TRUE;
 		}
 	
-		 prframe = LIST_CONTAINOR(plist, union recv_frame, u);
-	        pattrib = &prframe->u.hdr.attrib;	
+		prframe = LIST_CONTAINOR(plist, union recv_frame, u);
+		pattrib = &prframe->u.hdr.attrib;	
 
 		#ifdef DBG_RX_SEQ
 		DBG_871X("DBG_RX_SEQ %s:%d IndicateSeq: %d, NewSeq: %d\n", __FUNCTION__, __LINE__,
 			preorder_ctrl->indicate_seq, pattrib->seq_num);
 		#endif
-			
+		recv_indicatepkts_pkt_loss_cnt(pdbgpriv,preorder_ctrl->indicate_seq,pattrib->seq_num);
 		preorder_ctrl->indicate_seq = pattrib->seq_num;		
 		
 	}
@@ -3274,6 +3296,8 @@ int recv_indicatepkt_reorder(_adapter *padapter, union recv_frame *prframe)
 	struct rx_pkt_attrib *pattrib = &prframe->u.hdr.attrib;
 	struct recv_reorder_ctrl *preorder_ctrl = prframe->u.hdr.preorder_ctrl;
 	_queue *ppending_recvframe_queue = &preorder_ctrl->pending_recvframe_queue;
+	struct dvobj_priv *psdpriv = padapter->dvobj;
+	struct debug_priv *pdbgpriv = &psdpriv->drv_dbg;
 
 	if(!pattrib->amsdu)
 	{
@@ -3370,6 +3394,7 @@ int recv_indicatepkt_reorder(_adapter *padapter, union recv_frame *prframe)
 	//s2. check if winstart_b(indicate_seq) needs to been updated
 	if(!check_indicate_seq(preorder_ctrl, pattrib->seq_num))
 	{
+		pdbgpriv->dbg_rx_ampdu_drop_count++;
 		//pHTInfo->RxReorderDropCounter++;
 		//ReturnRFDList(Adapter, pRfd);
 		//RT_TRACE(COMP_RX_REORDER, DBG_TRACE, ("RxReorderIndicatePacket() ==> Packet Drop!!\n"));

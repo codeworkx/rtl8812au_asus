@@ -53,8 +53,8 @@ int usbctrl_vendorreq(struct intf_hdl *pintfhdl, u8 request, u16 value, u16 inde
 
 	//DBG_871X("%s %s:%d\n",__FUNCTION__, current->comm, current->pid);
 
-	if((padapter->bSurpriseRemoved) ||(pwrctl->pnp_bstop_trx)){
-		RT_TRACE(_module_hci_ops_os_c_,_drv_err_,("usbctrl_vendorreq:(padapter->bSurpriseRemoved ||pwrctl->pnp_bstop_trx)!!!\n"));
+	if (RTW_CANNOT_IO(padapter)){
+		RT_TRACE(_module_hci_ops_os_c_,_drv_err_,("usbctrl_vendorreq:(RTW_CANNOT_IO)!!!\n"));
 		status = -EPERM; 
 		goto exit;
 	}	
@@ -318,7 +318,7 @@ unsigned int ffaddr2pipehdl(struct dvobj_priv *pdvobj, u32 addr)
 		pipe=usb_rcvbulkpipe(pusbd, pdvobj->RtInPipe[0]);
 		
 	} else if (addr == RECV_INT_IN_ADDR) {	
-		pipe=usb_rcvbulkpipe(pusbd, pdvobj->RtInPipe[1]);
+		pipe=usb_rcvintpipe(pusbd, pdvobj->RtInPipe[1]);
 		
 	} else if (addr < HW_QUEUE_ENTRY) {
 		ep_num = pdvobj->Queue2Pipe[addr];
@@ -375,13 +375,16 @@ static u32 usb_bulkout_zero(struct intf_hdl *pintfhdl, u32 addr)
 	//DBG_871X("%s\n", __func__);
 	
 		
-	if((padapter->bDriverStopped) || (padapter->bSurpriseRemoved) ||(pwrctl->pnp_bstop_trx))
+	if (RTW_CANNOT_TX(padapter))
 	{		
 		return _FAIL;
 	}
 	
 
 	pcontext = (struct zero_bulkout_context *)rtw_zmalloc(sizeof(struct zero_bulkout_context));
+	if (pcontext == NULL) {
+		return _FAIL;
+	}
 
 	pbuf = (unsigned char *)rtw_zmalloc(sizeof(int));	
     	purb = usb_alloc_urb(0, GFP_ATOMIC);
@@ -440,8 +443,6 @@ void usb_read_port_cancel(struct intf_hdl *pintfhdl)
 	precvbuf = (struct recv_buf *)padapter->recvpriv.precv_buf;
 
 	DBG_871X("%s\n", __func__);
-
-	padapter->bReadPortCancel = _TRUE;
 
 	for (i=0; i < NR_RECVBUFF ; i++) {
 		
@@ -537,11 +538,11 @@ _func_enter_;
 */
         //rtw_free_xmitframe(pxmitpriv, pxmitframe);
 	
-	if(padapter->bSurpriseRemoved || padapter->bDriverStopped ||padapter->bWritePortCancel)
+	if (RTW_CANNOT_TX(padapter))
 	{
 		RT_TRACE(_module_hci_ops_os_c_,_drv_err_,("usb_write_port_complete:bDriverStopped(%d) OR bSurpriseRemoved(%d)", padapter->bDriverStopped, padapter->bSurpriseRemoved));
-		DBG_8192C("%s(): TX Warning! bDriverStopped(%d) OR bSurpriseRemoved(%d) bWritePortCancel(%d) pxmitbuf->buf_tag(%x) \n", 
-		__FUNCTION__,padapter->bDriverStopped, padapter->bSurpriseRemoved,padapter->bWritePortCancel,pxmitbuf->buf_tag);	
+		DBG_8192C("%s(): TX Warning! bDriverStopped(%d) OR bSurpriseRemoved(%d) pxmitbuf->buf_tag(%x) \n", 
+		__FUNCTION__,padapter->bDriverStopped, padapter->bSurpriseRemoved,pxmitbuf->buf_tag);	
 
 		goto check_completion;
 	}
@@ -597,7 +598,7 @@ _func_enter_;
 check_completion:
 	_enter_critical(&pxmitpriv->lock_sctx, &irqL);
 	rtw_sctx_done_err(&pxmitbuf->sctx,
-		purb->status ? RTW_SCTX_DONE_WRITE_PORT_ERR : RTW_SCTX_DONE_SUCCESS);
+	purb->status ? RTW_SCTX_DONE_WRITE_PORT_ERR : RTW_SCTX_DONE_SUCCESS);
 	_exit_critical(&pxmitpriv->lock_sctx, &irqL);
 
 	rtw_free_xmitbuf(pxmitpriv, pxmitbuf);
@@ -630,13 +631,13 @@ u32 usb_write_port(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8 *wmem)
 _func_enter_;	
 	
 	RT_TRACE(_module_hci_ops_os_c_,_drv_err_,("+usb_write_port\n"));
-	
-	if ((padapter->bDriverStopped) || (padapter->bSurpriseRemoved) ||(pwrctl->pnp_bstop_trx)) {
+
+	if (RTW_CANNOT_TX(padapter)) {
 		#ifdef DBG_TX
-		DBG_871X(" DBG_TX %s:%d bDriverStopped%d, bSurpriseRemoved:%d, pnp_bstop_trx:%d\n",__FUNCTION__, __LINE__
-			,padapter->bDriverStopped, padapter->bSurpriseRemoved, pwrctl->pnp_bstop_trx );
+		DBG_871X(" DBG_TX %s:%d bDriverStopped%d, bSurpriseRemoved:%d\n",__FUNCTION__, __LINE__
+			,padapter->bDriverStopped, padapter->bSurpriseRemoved);
 		#endif
-		RT_TRACE(_module_hci_ops_os_c_,_drv_err_,("usb_write_port:( padapter->bDriverStopped ||padapter->bSurpriseRemoved ||pwrctl->pnp_bstop_trx)!!!\n"));
+		RT_TRACE(_module_hci_ops_os_c_,_drv_err_,("usb_write_port:( padapter->bDriverStopped ||padapter->bSurpriseRemoved )!!!\n"));
 		rtw_sctx_done_err(&pxmitbuf->sctx, RTW_SCTX_DONE_TX_DENY);
 		goto exit;
 	}
@@ -764,9 +765,7 @@ void usb_write_port_cancel(struct intf_hdl *pintfhdl)
 	struct xmit_buf *pxmitbuf = (struct xmit_buf *)padapter->xmitpriv.pxmitbuf;
 
 	DBG_871X("%s \n", __func__);
-	
-	padapter->bWritePortCancel = _TRUE;	
-	
+
 	for (i=0; i<NR_XMITBUFF; i++) {
 		for (j=0; j<8; j++) {
 			if (pxmitbuf->pxmit_urb[j]) {

@@ -707,7 +707,8 @@ _func_enter_;
 		rtw_indicate_disconnect(padapter);
 		//modify for CONFIG_IEEE80211W, none 11w can use it
 		rtw_free_assoc_resources_cmd(padapter);
-		rtw_pwr_wakeup(padapter);		
+		if (_FAIL == rtw_pwr_wakeup(padapter))
+			DBG_871X("%s(): rtw_pwr_wakeup fail !!!\n",__FUNCTION__);
 	}
 
 	_exit_critical_bh(&pmlmepriv->lock, &irqL);

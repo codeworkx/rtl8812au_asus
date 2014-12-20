@@ -1724,8 +1724,16 @@ halbtc8188c2ant_ActionPanA2dp(
 // extern function start with EXhalbtc8188c2ant_
 //============================================================
 VOID
-EXhalbtc8188c2ant_InitHwConfig(
+EXhalbtc8188c2ant_PowerOnSetting(
 	IN	PBTC_COEXIST		pBtCoexist
+	)
+{
+}
+
+VOID
+EXhalbtc8188c2ant_InitHwConfig(
+	IN	PBTC_COEXIST		pBtCoexist,
+	IN	BOOLEAN				bWifiOnly
 	)
 {
 	u1Byte	u1Tmp=0;

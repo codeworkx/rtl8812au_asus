@@ -84,7 +84,7 @@ dm_CheckStatistics(
 	rtw_hal_get_hwreg( Adapter, HW_VAR_RETRY_COUNT, (pu1Byte)(&Adapter->TxStats.NumTxRetryCount) );
 #endif
 }
-
+#ifdef CONFIG_SUPPORT_HW_WPS_PBC
 static void dm_CheckPbcGPIO(_adapter *padapter)
 {
 	u8	tmp1byte;
@@ -153,6 +153,7 @@ static void dm_CheckPbcGPIO(_adapter *padapter)
 		rtw_request_wps_pbc_event(padapter);
 	}
 }
+#endif //#ifdef CONFIG_SUPPORT_HW_WPS_PBC
 
 #ifdef CONFIG_PCI_HCI
 //
@@ -323,7 +324,7 @@ static void Init_ODM_ComInfo_8812(PADAPTER	Adapter)
 	//
 	// Init Value
 	//
-	_rtw_memset(pDM_Odm,0,sizeof(pDM_Odm));
+	_rtw_memset(pDM_Odm,0,sizeof(*pDM_Odm));
 	
 	pDM_Odm->Adapter = Adapter;	
 	
@@ -582,7 +583,7 @@ rtl8812_HalDmWatchDog(
 		// Calculate Tx/Rx statistics.
 		//
 		dm_CheckStatistics(Adapter);	
-	
+		rtw_hal_check_rxfifo_full(Adapter);
 		//
 		// Dynamically switch RTS/CTS protection.
 		//
@@ -609,21 +610,21 @@ rtl8812_HalDmWatchDog(
 		pHalData->odmpriv.SupportAbility = 0;
 		#endif
 
-		if(rtw_linked_check(Adapter))
+		if(rtw_linked_check(Adapter)){			
 			bLinked = _TRUE;
-
+			if (check_fwstate(&Adapter->mlmepriv, WIFI_STATION_STATE))
+				bsta_state = _TRUE;
+		}
+			
 #ifdef CONFIG_CONCURRENT_MODE
-		if(pbuddy_adapter && rtw_linked_check(pbuddy_adapter))
+		if(pbuddy_adapter && rtw_linked_check(pbuddy_adapter)){
 			bLinked = _TRUE;
+			if(pbuddy_adapter && check_fwstate(&pbuddy_adapter->mlmepriv, WIFI_STATION_STATE))
+				bsta_state = _TRUE;
+		}
 #endif //CONFIG_CONCURRENT_MODE
-		ODM_CmnInfoUpdate(&pHalData->odmpriv ,ODM_CMNINFO_LINK, bLinked);
 
-		if (check_fwstate(&Adapter->mlmepriv, WIFI_STATION_STATE))
-			bsta_state = _TRUE;
-#ifdef CONFIG_CONCURRENT_MODE
-		if(pbuddy_adapter && check_fwstate(&pbuddy_adapter->mlmepriv, WIFI_STATION_STATE))
-			bsta_state = _TRUE;
-#endif //CONFIG_CONCURRENT_MODE	
+		ODM_CmnInfoUpdate(&pHalData->odmpriv ,ODM_CMNINFO_LINK, bLinked);
 		ODM_CmnInfoUpdate(&pHalData->odmpriv ,ODM_CMNINFO_STATION_STATE, bsta_state);
 
 		ODM_DMWatchdog(&pHalData->odmpriv);
@@ -632,15 +633,11 @@ rtl8812_HalDmWatchDog(
 
 skip_dm:
 
-	// Check GPIO to determine current RF on/off and Pbc status.
-	// Check Hardware Radio ON/OFF or not
-#ifdef CONFIG_PCI_HCI
-	if(pHalData->bGpioHwWpsPbc)
+#ifdef CONFIG_SUPPORT_HW_WPS_PBC
+	// Check GPIO to determine current Pbc status.
+	dm_CheckPbcGPIO(Adapter);
 #endif
-	{
-		//temp removed
-		dm_CheckPbcGPIO(Adapter);
-	}
+
 	return;
 }
 

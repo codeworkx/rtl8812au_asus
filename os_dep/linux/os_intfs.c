@@ -660,7 +660,11 @@ u16 rtw_recv_select_queue(struct sk_buff *skb)
 
 static int rtw_ndev_notifier_call(struct notifier_block * nb, unsigned long state, void *ndev)
 {
-	struct net_device *dev = ndev;
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(3,11,0))
+	struct net_device *dev = netdev_notifier_info_to_dev(ndev);
+#else
+ 	struct net_device *dev = ndev;
+#endif
 
 #if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,29))
 	if (!dev->netdev_ops || dev->netdev_ops->ndo_do_ioctl != rtw_ioctl)

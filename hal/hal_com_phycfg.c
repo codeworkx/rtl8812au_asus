@@ -2570,12 +2570,18 @@ Hal_ChannelPlanToRegulation(
 		default:
 			break;
 	}
+
+	DBG_871X("%s ChannelPlan:0x%02x,Regulation(2_4G/5G):0x%02x,0x%02x\n",
+		__FUNCTION__,ChannelPlan,pHalData->Regulation2_4G,pHalData->Regulation5G);
+
 }
 
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 
 extern char *rtw_phy_file_path;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0))
 char	file_path[PATH_LENGTH_MAX];
+#endif
 
 #define GetLineFromBuffer(buffer)	 strsep(&buffer, "\n")
 
